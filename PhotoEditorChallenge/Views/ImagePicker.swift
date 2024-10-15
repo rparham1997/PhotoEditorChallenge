@@ -43,7 +43,11 @@ struct ImagePicker: UIViewControllerRepresentable {
             if result.itemProvider.canLoadObject(ofClass: UIImage.self) {
                 result.itemProvider.loadObject(ofClass: UIImage.self) { [weak self] (image, error) in
                     if let image = image as? UIImage {
-                        self?.parent.selectedImage = image // Assign selected image
+                        DispatchQueue.main.async {
+                            self?.parent.selectedImage = image // Assign selected image
+                        }
+                    } else {
+                        print("Failed to load image: \(error?.localizedDescription ?? "Unknown error")")
                     }
                 }
             }

@@ -10,7 +10,7 @@ import CoreImage
 import CoreImage.CIFilterBuiltins
 import PhotosUI
 
-// MARK: - Structs
+// MARK: - ContentView
 struct ContentView: View {
     @State private var selectedImage: UIImage?
     @State private var processedImage: UIImage?
@@ -35,13 +35,13 @@ struct ContentView: View {
         }
         .sheet(isPresented: $showingImagePicker) {
             ImagePicker(selectedImage: $selectedImage)
-                .onChange(of: selectedImage) { _ in
-                    processedImage = selectedImage
-                    updateProcessedImage()
+                .onChange(of: selectedImage) { newValue in
+                    if let newValue = newValue {
+                        print("Selected image: \(newValue)") // Debug statement
+                        processedImage = newValue // Show the selected image
+                        updateProcessedImage() // Apply adjustments
+                    }
                 }
-        }
-        .onChange(of: selectedImage) { _ in
-            updateProcessedImage()
         }
     }
 
@@ -51,11 +51,6 @@ struct ContentView: View {
         Group {
             if let image = processedImage {
                 Image(uiImage: image)
-                    .resizable()
-                    .scaledToFit()
-                    .frame(maxHeight: 300)
-            } else if let selectedImage = selectedImage {
-                Image(uiImage: selectedImage)
                     .resizable()
                     .scaledToFit()
                     .frame(maxHeight: 300)
@@ -111,10 +106,13 @@ struct ContentView: View {
     }
 
     private func updateProcessedImage() {
-        guard let image = selectedImage else { return }
-        
-        if let adjustedImage = PhotoProcessor().applyAdjustments(
-            to: image.cgImage!,
+        guard let image = selectedImage?.cgImage else {
+            print("No selected image available") // Debug statement
+            return
+        }
+
+        let adjustedImage = PhotoProcessor().applyAdjustments(
+            to: image,
             exposure: mapSliderValueToFilterRange(adjustments.exposure),
             brilliance: mapSliderValueToFilterRange(adjustments.brilliance),
             highlights: mapSliderValueToFilterRange(adjustments.highlights),
@@ -126,8 +124,13 @@ struct ContentView: View {
             vibrance: mapSliderValueToFilterRange(adjustments.vibrance),
             warmth: mapSliderValueToFilterRange(adjustments.warmth),
             tint: mapSliderValueToFilterRange(adjustments.tint)
-        ) {
+        )
+
+        if let adjustedImage = adjustedImage {
             processedImage = UIImage(cgImage: adjustedImage)
+            print("Processed image updated") // Debug statement
+        } else {
+            print("Failed to process the image") // Debug statement
         }
     }
 
@@ -136,18 +139,24 @@ struct ContentView: View {
     }
 
     private func applyFilter(filterType: FilterType) {
-        guard let image = selectedImage else { return }
-        
-        let processedImage: CGImage?
-        switch filterType {
-        case .vivid:
-            processedImage = PhotoProcessor().applyVividFilter(to: image.cgImage!)
-        case .vividWarm:
-            processedImage = PhotoProcessor().applyVividWarmFilter(to: image.cgImage!)
+        guard let image = selectedImage?.cgImage else {
+            print("No selected image available for filtering") // Debug statement
+            return
         }
 
-        if let cgImage = processedImage {
+        let filteredImage: CGImage?
+        switch filterType {
+        case .vivid:
+            filteredImage = PhotoProcessor().applyVividFilter(to: image)
+        case .vividWarm:
+            filteredImage = PhotoProcessor().applyVividWarmFilter(to: image)
+        }
+
+        if let cgImage = filteredImage {
             self.processedImage = UIImage(cgImage: cgImage)
+            print("Applied filter: \(filterType)") // Debug statement
+        } else {
+            print("Failed to apply filter") // Debug statement
         }
     }
 }
@@ -209,9 +218,9 @@ struct GridStack<Content: View>: View {
 
     var body: some View {
         VStack {
-            ForEach(0..<rows) { row in
+            ForEach(0..<rows, id: \.self) { row in
                 HStack {
-                    ForEach(0..<columns) { column in
+                    ForEach(0..<columns, id: \.self) { column in
                         content(row, column)
                     }
                 }
@@ -220,7 +229,7 @@ struct GridStack<Content: View>: View {
     }
 }
 
-
+// Preview
 #Preview {
     ContentView()
 }

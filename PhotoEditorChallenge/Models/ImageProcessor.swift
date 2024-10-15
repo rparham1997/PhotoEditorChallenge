@@ -8,12 +8,11 @@
 import CoreImage
 import CoreImage.CIFilterBuiltins
 
-struct PhotoProcessor {
-    let context = CIContext()
+class PhotoProcessor {
+    private let context = CIContext()
 
-    // Apply all adjustments
     func applyAdjustments(
-        to cgImage: CGImage,
+        to image: CGImage,
         exposure: Float,
         brilliance: Float,
         highlights: Float,
@@ -26,73 +25,37 @@ struct PhotoProcessor {
         warmth: Float,
         tint: Float
     ) -> CGImage? {
-        let ciImage = CIImage(cgImage: cgImage)
-        
-        // Apply Exposure Adjustment
-        let exposureFilter = CIFilter.exposureAdjust()
-        exposureFilter.inputImage = ciImage
-        exposureFilter.ev = exposure
-        guard let exposureOutput = exposureFilter.outputImage else { return nil }
-        
-        // Apply Brightness, Contrast, Saturation, Vibrance Adjustments
-        let colorControlsFilter = CIFilter.colorControls()
-        colorControlsFilter.inputImage = exposureOutput
-        colorControlsFilter.brightness = brightness / 100 // Scale to -1 to +1
-        colorControlsFilter.contrast = contrast / 100
-        colorControlsFilter.saturation = saturation / 100
-        guard let colorOutput = colorControlsFilter.outputImage else { return nil }
+        // Create a CIImage from the input CGImage
+        let ciImage = CIImage(cgImage: image)
 
-        // Apply Highlights and Shadows adjustments using color controls
-        let shadowAmount = shadows / 100 // Scale shadows
-        let highlightAmount = highlights / 100 // Scale highlights
-        
-        // Create a contrast adjustment for shadows and highlights
-        let shadowHighlightFilter = CIFilter.colorControls()
-        shadowHighlightFilter.inputImage = colorOutput
-        shadowHighlightFilter.brightness = shadowAmount // Shadows as negative brightness
-        shadowHighlightFilter.contrast = highlightAmount + 1.0 // Highlights as contrast
-        
-        guard let finalOutput = shadowHighlightFilter.outputImage else { return nil }
+        // Apply adjustments using CIFilters
+        let filter = CIFilter.colorControls()
+        filter.inputImage = ciImage
+        filter.brightness = brightness / 100.0
+        filter.contrast = contrast / 100.0 + 1.0 // Ensure contrast is in range
+        filter.saturation = saturation / 100.0 + 1.0 // Ensure saturation is in range
 
-        // Warmth and Tint Adjustments
+        // Create a CIImage from the filter's output and convert back to CGImage
+        return context.createCGImage(filter.outputImage!, from: ciImage.extent)
+    }
+
+    func applyVividFilter(to image: CGImage) -> CGImage? {
+        let ciImage = CIImage(cgImage: image)
+        let filter = CIFilter.colorControls()
+        filter.inputImage = ciImage
+        filter.saturation = 1.5 // Increase saturation
+        return context.createCGImage(filter.outputImage!, from: ciImage.extent)
+    }
+
+    func applyVividWarmFilter(to image: CGImage) -> CGImage? {
+        let ciImage = CIImage(cgImage: image)
+        let filter = CIFilter.colorControls()
+        filter.inputImage = ciImage
+        filter.saturation = 1.5 // Increase saturation
         let warmthFilter = CIFilter.temperatureAndTint()
-        warmthFilter.inputImage = finalOutput
-        warmthFilter.neutral = CIVector(x: 6500 + CGFloat(warmth * 10), y: CGFloat(tint * 10)) // Adjust temperature based on warmth and tint sliders
-
-        guard let finalImage = warmthFilter.outputImage else { return nil }
-
-        // Convert CIImage back to CGImage
-        return context.createCGImage(finalImage, from: finalImage.extent)
-    }
-
-    // Apply Vivid filter
-    func applyVividFilter(to cgImage: CGImage) -> CGImage? {
-        let ciImage = CIImage(cgImage: cgImage)
-
-        // Apply a Vivid filter by increasing saturation and contrast
-        let vividFilter = CIFilter.colorControls()
-        vividFilter.inputImage = ciImage
-        vividFilter.saturation = 1.5 // Adjust this value for stronger effects
-        vividFilter.contrast = 1.2 // Optional: Increase contrast
-
-        guard let outputImage = vividFilter.outputImage else { return nil }
-
-        return context.createCGImage(outputImage, from: outputImage.extent)
-    }
-
-    // Apply Vivid Warm filter
-    func applyVividWarmFilter(to cgImage: CGImage) -> CGImage? {
-        let ciImage = CIImage(cgImage: cgImage)
-
-        // Apply Vivid Warm effect
-        let vividWarmFilter = CIFilter.colorControls()
-        vividWarmFilter.inputImage = ciImage
-        vividWarmFilter.saturation = 1.5 // Adjust this value for stronger effects
-        vividWarmFilter.brightness = 0.1 // Optional: slight brightness adjustment
-
-        guard let outputImage = vividWarmFilter.outputImage else { return nil }
-
-        return context.createCGImage(outputImage, from: outputImage.extent)
+        warmthFilter.inputImage = filter.outputImage
+        warmthFilter.targetNeutral = CIVector(x: 6500, y: 0) // Adjust warmth
+        return context.createCGImage(warmthFilter.outputImage!, from: ciImage.extent)
     }
 }
 
